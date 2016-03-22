@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_layout_file>
+	<ActiveTarget name="Release" />
+	<File name="CUDA_KDtree.cu" open="1" top="0" tabpos="4">
+		<Cursor position="6962" topLine="238" />
+	</File>
+	<File name="CUDA_KDtree.h" open="1" top="0" tabpos="5">
+		<Cursor position="294" topLine="1" />
+	</File>
+	<File name="KDtree.cpp" open="1" top="0" tabpos="2">
+		<Cursor position="6241" topLine="242" />
+	</File>
+	<File name="KDtree.h" open="1" top="0" tabpos="1">
+		<Cursor position="755" topLine="27" />
+	</File>
+	<File name="main.cpp" open="1" top="1" tabpos="3">
+		<Cursor position="805" topLine="12" />
+	</File>
+</CodeBlocks_layout_file>

@@ -1,0 +1,33 @@
+# depslib dependency file v1.0
+1300354992 source:/home/nghia/Projects/CUDA_KDtree/KDtree.cpp
+	"KDtree.h"
+	<cstdio>
+	<algorithm>
+	<numeric>
+	<float.h>
+	<cmath>
+
+1300350337 /home/nghia/Projects/CUDA_KDtree/KDtree.h
+	<vector>
+
+1300355079 source:/home/nghia/Projects/CUDA_KDtree/main.cpp
+	<cstdio>
+	<vector>
+	<cstdlib>
+	<float.h>
+	<sys/time.h>
+	<ANN/ANN.h>
+	"KDtree.h"
+	"CUDA_KDtree.h"
+
+1300355651 source:/home/nghia/Projects/CUDA_KDtree/CUDA_KDtree.cu
+	"CUDA_KDtree.h"
+	<cuda.h>
+	<cuda_runtime.h>
+	<float.h>
+	<cstdio>
+
+1300350508 /home/nghia/Projects/CUDA_KDtree/CUDA_KDtree.h
+	"KDtree.h"
+	<vector>
+
