@@ -1,6 +1,10 @@
 # Python executables
 *.pyc
 
+# GPU Executables
+nn_aadil
+CUDA_KDtree
+
 # data files
 ./data/*
 
