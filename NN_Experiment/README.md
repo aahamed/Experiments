@@ -8,7 +8,7 @@ GPU KDTree Nearest Neighbor Search implementation (./NN_KDtree) was obtained fro
 
 Building:
 --------
-To build run the command:  
+To build, run the command:  
 ```
 make all
 ```  
