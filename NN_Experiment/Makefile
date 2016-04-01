@@ -7,10 +7,10 @@ all: nn_aadil CUDA_KDtree
 
 # Brute Force rules
 nn_aadil : $(BRUTE)nn_cuda_aadil.cu
-	nvcc $(BRUTE)nn_cuda_aadil.cu -o nn_aadil
+	nvcc $(BRUTE)nn_cuda_aadil.cu -o nn_aadil -L$(HOME)ANN/lib/ -lANN -I$(HOME)ANN/include/
 
 debug : $(BRUTE)nn_cuda_aadil.cu
-	nvcc $(DEBUG) $(BRUTE)nn_cuda_aadil.cu -o debug
+	nvcc $(DEBUG) $(BRUTE)nn_cuda_aadil.cu -o debug -L$(HOME)ANN/lib/ -lANN -I$(HOME)ANN/include/
 
 nn : nn_cuda.cu
 	$(CC) -cuda nn_cuda.cu
@@ -36,6 +36,9 @@ clean :
 
 hurricane_gen : hurricane_gen.c
 	$(LOCAL_CC) -o $@ $< -lm
+
+plot_results: plot_results.p
+	gnuplot -persist plot_results.p
 
 #data :
 #	mkdir data

@@ -13,19 +13,22 @@
 #include <sys/time.h>
 #include <string>
 #include <fstream>
+#include <ANN/ANN.h>
 #include "cuda.h"
 
 //#define DEBUG
 #define DELTA 1E-6
 #define THREADS_PER_BLOCK 512
+#define KDTREE_DIM 2
+#define square(x) ((x)*(x))
 
 using namespace std;
 
-/*struct Point
+
+struct Point
 {
     float coords[KDTREE_DIM];
-};*/
-
+};
 
 typedef struct latLong
 {
@@ -34,24 +37,31 @@ typedef struct latLong
 } LatLong;
 
 // Host Function Prototypes
-float serial_distance(LatLong *p, LatLong *q);
-int serial_min_index(float* distances, int N);
-void serial_nn(LatLong *data, LatLong *queries, LatLong *result, int N);
-bool match(LatLong *device, LatLong *host, int N);
+float serial_distance(Point *p, Point *q);
+int serial_min_index(float *distances, int N);
+void serial_nn(Point *data, Point *queries, Point *result, int N);
+bool match(Point *device, Point *host, int N);
 double TimeDiff(timeval t1, timeval t2);
-void loadVector(const char* filename, vector<LatLong> &v);
+void loadVector(const char* filename, vector<Point> &v);
 void write_result(const char* filename, int N, double time);
+void SearchANN(const vector <Point> &queries, const vector <Point> &data, vector <int> &idxs, vector <float> dist_sq, double &create_time, double &search_time);
 
 // Device Function Prototypes
-__device__ float distance(LatLong *p, LatLong *q);
+__device__ float distance(Point *p, Point *q);
 __device__ int min_index(float* distances, int N);
-__global__ void nn(LatLong *data, LatLong *queries, LatLong *result, int N);
+__global__ void nn(Point *data, Point *queries, Point *result, int N);
+
 
 
 // Distance Calculation (squared)
-float serial_distance(LatLong *p, LatLong *q)
+float serial_distance(Point *p, Point *q)
 {
-  return (p->lat - q->lat)*(p->lat - q->lat) + (p->lng - q->lng)*(p->lng - q->lng);
+  float sdistance = 0;
+  for(int i = 0; i < KDTREE_DIM; i++)
+  {
+    sdistance += square( p->coords[i] - q->coords[i] );
+  }
+  return sdistance;
 }
 
 // Find index with minimum distance
@@ -71,7 +81,7 @@ int serial_min_index(float *distances, int N)
 }
 
 // Serial NN Search
-void serial_nn(LatLong *data, LatLong *queries, LatLong *results, int N)
+void serial_nn(Point *data, Point *queries, Point *results, int N)
 {
   float *distances = (float *)malloc(sizeof(float) * N);
   for(int i = 0; i < N; i++)
@@ -86,13 +96,72 @@ void serial_nn(LatLong *data, LatLong *queries, LatLong *results, int N)
 }
 
 // Checks if serial and parallel results match
-bool match(LatLong *device, LatLong *host, int N)
+bool match(Point *device, Point *host, int N)
 {
   for(int i = 0; i < N; i++)
   {
     if(serial_distance(&device[i], &host[i]) > DELTA)
     {
       printf("first mismatch at index %d\n", i);
+      return false;
+    }
+  }
+  return true;
+}
+
+void SearchANN(const vector <Point> &queries, const vector <Point> &data, vector <int> &idxs, vector <float> dist_sq, double &create_time, double &search_time)
+{
+    int k = 1;
+    timeval t1, t2;
+
+    idxs.resize(queries.size());
+    dist_sq.resize(queries.size());
+
+    ANNidxArray nnIdx = new ANNidx[k];
+    ANNdistArray dists = new ANNdist[k];
+    ANNpoint queryPt = annAllocPt(KDTREE_DIM);
+
+    ANNpointArray dataPts = annAllocPts(data.size(), KDTREE_DIM);
+
+    for(unsigned int i=0; i < data.size(); i++) {
+        for(int j=0; j < KDTREE_DIM; j++ ) {
+            dataPts[i][j] = data[i].coords[j];
+        }
+    }
+
+    gettimeofday(&t1, NULL);
+    ANNkd_tree* kdTree = new ANNkd_tree(dataPts, data.size(), KDTREE_DIM);
+    gettimeofday(&t2, NULL);
+    create_time = TimeDiff(t1,t2);
+
+    gettimeofday(&t1, NULL);
+    for(int i=0; i < queries.size(); i++) {
+        for(int j=0; j < KDTREE_DIM; j++) {
+            queryPt[j] = queries[i].coords[j];
+        }
+
+        kdTree->annkSearch(queryPt, 1, nnIdx, dists);
+
+        idxs[i] = nnIdx[0];
+        dist_sq[i] = dists[0];
+    }
+    gettimeofday(&t2, NULL);
+    search_time = TimeDiff(t1,t2);
+
+	delete [] nnIdx;
+	delete [] dists;
+	delete kdTree;
+	annDeallocPts(dataPts);
+	annClose();
+}
+
+bool verify(vector<Point> &data, vector<int> &cpu_idx, Point *gpu_res, int N)
+{
+  for(int i = 0; i < N; i++)
+  {
+    if(serial_distance( &gpu_res[i], &data[cpu_idx[i]] ) > DELTA)
+    {
+      printf("first mismatch at index %s\n",i);
       return false;
     }
   }
@@ -110,18 +179,18 @@ double TimeDiff(timeval t1, timeval t2)
 }
 
 // Load data from filename into vector
-void loadVector(const char* filename, vector<LatLong> &v)
+void loadVector(const char* filename, vector<Point> &v)
 {
   ifstream file(filename);
   char* pEnd;
   string value;
-  LatLong l;
+  Point l;
   if(file.is_open())
   {
     while( getline(file, value) )
     {
-      l.lat = strtof(value.c_str(), &pEnd);
-      l.lng = strtof(pEnd, NULL);
+      l.coords[0] = strtof(value.c_str(), &pEnd);
+      l.coords[1] = strtof(pEnd, NULL);
       v.push_back(l);
     }
   }
@@ -129,9 +198,20 @@ void loadVector(const char* filename, vector<LatLong> &v)
 #ifdef DEBUG2
   for(int i = 0; i < v.size(); i++)
   {
-    printf("%.2f %.2f\n", v[i].lat, v[i].lng);
+    printf("%.2f %.2f\n", v[i].coords[0], v[i].coords[1]);
   }
 #endif
+}
+
+void load_vector_random(vector<Point> &v)
+{
+  for(int i = 0; i < v.size(); i++)
+  {
+    for(int j = 0; j < KDTREE_DIM; j++)
+    {
+      v[i].coords[j] = 0 + 100.0*(rand() / (1.0 + RAND_MAX));
+    }
+  }
 }
 
 void write_result(const char* filename, int N, double time)
@@ -140,16 +220,21 @@ void write_result(const char* filename, int N, double time)
   file.open(filename, ios::out | ios::app);
   if(file.is_open())
   {
-    file << N << "\t" << time << "\n";
+    file << N << " " << time << "\n";
   }
   file.close();
 }
 
 
 // Distance calculation (squared)
-__device__ float distance(LatLong *p, LatLong *q)
+__device__ float distance(Point *p, Point *q)
 {
-  return (p->lat - q->lat)*(p->lat - q->lat) + (p->lng - q->lng)*(p->lng - q->lng);
+  float sdistance = 0;
+  for(int i = 0; i < KDTREE_DIM; i++)
+  {
+    sdistance += square( p->coords[i] - q->coords[i] );
+  }
+  return sdistance;
 }
 
 // Find index with minimum distance
@@ -165,7 +250,7 @@ __device__ int min_index(float* distances, int N)
       min_i = i;
     }
   }
-#ifdef DEBUG
+#ifdef DEBUG2
   if(threadIdx.x == 0)
   {
     printf("Min index for thread 0 = %d  value = %.2f\n", min_i, min);
@@ -180,12 +265,12 @@ __device__ int min_index(float* distances, int N)
 * Executed on GPU
 * Perform nearest neighbor search against data using queries
 */
-__global__ void nn_dep(LatLong *data, LatLong *queries, LatLong *result, int N)
+__global__ void nn_dep(Point *data, Point *queries, Point *result, int N)
 {
   int global_id = blockDim.x * (gridDim.x * blockIdx.y + blockIdx.x) + threadIdx.x;
   if (global_id < N)
   {
-    LatLong* qpoint = &queries[global_id];
+    Point* qpoint = &queries[global_id];
     float* distances = (float*)malloc(sizeof(float) * N);
     for(int i = 0; i < N; i++)
     {
@@ -203,12 +288,12 @@ __global__ void nn_dep(LatLong *data, LatLong *queries, LatLong *result, int N)
 * Executed on GPU
 * Perform nearest neighbor search against data using queries
 */
-__global__ void nn(LatLong *data, LatLong *queries, LatLong *result, int N)
+__global__ void nn(Point *data, Point *queries, Point *result, int N)
 {
   int global_id = blockDim.x * (gridDim.x * blockIdx.y + blockIdx.x) + threadIdx.x;
   if (global_id < N)
   {
-    LatLong* qpoint = &queries[global_id];
+    Point* qpoint = &queries[global_id];
     int min_i = 0;
     float min_distance = distance(qpoint, &data[0]);
     float t_distance = 0;
@@ -229,11 +314,13 @@ __global__ void nn(LatLong *data, LatLong *queries, LatLong *result, int N)
 // Main body
 int main()
 {
-  vector <LatLong> data;
-  vector <LatLong> queries;
-  LatLong *d_data, *d_queries, *d_results, *results, *serial_results;
+  vector <Point> data;
+  vector <Point> queries;
+  Point *d_data, *d_queries, *d_results, *results;
+  //Point *serial_results;
   timeval t1, t2;
-  double elapsed_gpu, elapsed_serial;
+  double elapsed_gpu;
+  //double elapsed_serial;
  
   const char *data_file = "data/data.txt";
   const char *query_file = "data/query.txt";
@@ -248,26 +335,15 @@ int main()
 
   int N = queries.size();
   int blocks = N/THREADS_PER_BLOCK + ((N % THREADS_PER_BLOCK) ? 1 : 0);
-  int size = N * sizeof(LatLong);
+  int size = N * sizeof(Point);
 
   /* initialize random seed: */
   srand (time(NULL));
 
-  /*
-  for(int i = 0; i < data.size(); i++)
-  {
-    data[i].lat = 0 + 100.0*(rand() / (1.0 + RAND_MAX));
-    data[i].lng = 0 + 100.0*(rand() / (1.0 + RAND_MAX));
-  }
-  for(int i = 0; i < queries.size(); i++)
-  {
-    queries[i].lat = 0 + 100.0*(rand() / (1.0 + RAND_MAX));
-    queries[i].lng = 0 + 100.0*(rand() / (1.0 + RAND_MAX));
-  }*/
   
   //Allocate space for result
-  results = (LatLong *)malloc(size);
-  serial_results = (LatLong *)malloc(size);
+  results = (Point *)malloc(size);
+  //serial_results = (Point *)malloc(size);
 
   // Allocate space for device copies of data and queries
   cudaMalloc((void **)&d_data, size);
@@ -290,10 +366,49 @@ int main()
   // Copy result back to host
   cudaMemcpy(results, d_results, size, cudaMemcpyDeviceToHost);
 
-  gettimeofday(&t1, NULL);
+  //Perform CPU NN Search
+  vector<int> idx;
+  vector<float> dist;
+  double cpu_create_time, cpu_search_time;
+  SearchANN(queries, data, idx, dist, cpu_create_time, cpu_search_time);
 
 #ifdef DEBUG
+  for(int i = 0; i < 5; i++)
+  {
+        printf("query: (%.2f, %.2f) gpu_nn: (%.2f, %.2f) ann_nn: (%.2f, %.2f)\n", 
+            queries[i].coords[0], queries[i].coords[1], results[i].coords[0], results[i].coords[1], 
+            data[idx[i]].coords[0], data[idx[i]].coords[1]);
+  }
+#endif
+
+  if(verify(data, idx, results, N))
+  {
+    printf("Host and Device Results match !\n");
+    printf("GPU Running Time: %.3f\n", elapsed_gpu);
+    printf("CPU Running Time: %.3f\n", cpu_search_time);
+    printf("Speedup on GPU: %.2f\n", cpu_search_time/elapsed_gpu);
+    write_result(out_file, N, elapsed_gpu);
+  }
+  else
+  {
+    printf("!!!!! Host and Device Results DO NOT match !!!!!!\n");
+  }
+
+  //Cleanup
+  free(results);
+  cudaFree(d_data);
+  cudaFree(d_queries);
+  cudaFree(d_results);
+  return 0;
+}
+
+
+void tmp()
+{
+
+#ifdef DEBUG2
   //Do Serial NN Search
+  gettimeofday(&t1, NULL);
   serial_nn(&data[0], &queries[0], serial_results, N);
   gettimeofday(&t2, NULL);
   elapsed_serial = TimeDiff(t1, t2);
@@ -301,8 +416,8 @@ int main()
   for(int i = 0; i < 5; i++)
   {
     printf("query: (%.2f, %.2f) gpu_nn: (%.2f, %.2f) ser_nn(%.2f, %.2f)\n", 
-        queries[i].lat, queries[i].lng, results[i].lat, results[i].lng, 
-        serial_results[i].lat, serial_results[i].lng);
+        queries[i].coords[0], queries[i].coords[1], results[i].coords[0], results[i].coords[1], 
+        serial_results[i].coords[0], serial_results[i].coords[1]);
   }
   
   if(match(results, serial_results, N))
@@ -319,12 +434,4 @@ int main()
   }
 
 #endif
-  write_result(out_file, N, elapsed_gpu);
-  //Cleanup
-  free(results);
-  cudaFree(d_data);
-  cudaFree(d_queries);
-  cudaFree(d_results);
-  return 0;
 }
-

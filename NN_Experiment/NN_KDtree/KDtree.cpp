@@ -1,10 +1,12 @@
 #include "KDtree.h"
+#include <stdio.h>
 #include <cstdio>
 #include <algorithm>
 #include <numeric>
 #include <float.h>
 #include <cmath>
 #include <cstddef>
+#include <fstream>
 
 // Eww global. Need this for the sort function
 // A pointer to the class itself, allows the sort function to determine the splitting axis to sort by
@@ -149,7 +151,8 @@ void KDtree::SearchAtNode(KDNode *cur, const Point &query, int *ret_index, float
     vector <Point> &pts = *m_pts;
 
    // First pass
-    while(true) {
+    while(true) 
+    {
         int split_axis = cur->level % KDTREE_DIM;
 
         m_cmps++;
@@ -292,3 +295,52 @@ void KDtree::Search(const Point &query, int *ret_index, float *ret_dist)
     *ret_index = best_idx;
     *ret_dist = best_dist;
 }
+
+
+#ifdef DEBUG
+// Load data from filename into vector
+void loadVector(const char* filename, vector<Point> &v)
+{
+  ifstream file(filename);
+  char* pEnd;
+  string value;
+  Point l;
+  if(file.is_open())
+  {
+    while( getline(file, value) )
+    {
+      l.coords[0] = strtof(value.c_str(), &pEnd);
+      l.coords[1] = strtof(pEnd, NULL);
+      v.push_back(l);
+    }
+  }
+  file.close();
+#ifdef DEBUG2
+  for(int i = 0; i < v.size(); i++)
+  {
+    printf("%.2f %.2f\n", v[i].coords[0], v[i].coords[1]);
+  }
+#endif
+}
+#endif
+
+#ifdef DEBUG
+int main()
+{
+  const char *input_file = "input/input1.txt";
+  vector<Point> points;
+  int ret_index;
+  float ret_distance;
+  Point query, nn;
+  query.coords[0] = 2;
+  query.coords[1] = 1;
+  loadVector(input_file, points);
+  KDtree kdtree;
+  kdtree.Create(points);
+  kdtree.Search(query, &ret_index, &ret_distance);
+  nn = points[ret_index];
+  printf("query: (%.1f, %.1f) nn: (%.1f, %.1f) distance: %.2f\n", query.coords[0], query.coords[1],
+                                                                nn.coords[0], nn.coords[1], ret_distance);
+  return 0;
+}
+#endif

@@ -156,7 +156,7 @@ void write_result(const char* filename, int N, double time)
   file.open(filename, ios::out | ios::app);
   if(file.is_open())
   {
-    file << N << "\t" << time << "\n";
+    file << N << " " << time << "\n";
   }
   file.close();
 }

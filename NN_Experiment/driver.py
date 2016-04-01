@@ -7,6 +7,11 @@ driver.py: Driver for experiment
 import gen_data
 import subprocess
 
+# Global Variables
+brute_out = "./output/brute_out.txt"
+kd_out = "./output/kd_out.txt"
+
+
 def create_data(N):
   data_file = "./data/data.txt"
   query_file = "./data/query.txt"
@@ -24,15 +29,26 @@ def run_kd():
 
 def write_header(filename):
   with open(filename, 'w') as out_file:
-    out_file.write("N\tTime\n");
+    out_file.write("N Time\n");
 
 
 def setup():
-  brute_out = "./output/brute_out.txt"
-  kd_out = "./output/kd_out.txt"
   write_header(brute_out)
   write_header(kd_out)
 
+def read_output(filename):
+  N = []
+  time = []
+  with open(filename) as out_file:
+    header = out_file.readline()
+    for line in out_file:
+     line = line.split(' ')
+     N.append(int(line[0]))
+     time.append(float(line[1]))
+  return (N, time)
+
+def display_results():
+  pass 
 
 def main():
   setup()
