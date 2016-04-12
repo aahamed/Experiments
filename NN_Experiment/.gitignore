@@ -10,3 +10,6 @@ CUDA_KDtree
 
 # output files
 ./output/*
+
+# input files
+./input/*
