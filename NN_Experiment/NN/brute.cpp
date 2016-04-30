@@ -9,6 +9,7 @@
 #include "brute.h"
 #include <cstdlib>
 #include <ctime>
+#include <assert.h>
 
 // Distance Calculation (squared)
 template <typename T>
@@ -23,8 +24,11 @@ float Brute<T>::serial_distance(Point<T> &p, Point<T> &q)
 }
 
 template <typename T>
-void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<Point<T>> &result )
+void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result )
 {
+  assert (queries.size() == result.size());
+  NearestNeighbor<T>::create_time = chrono::milliseconds(0);
+  chrono::high_resolution_clock::time_point begin = chrono::high_resolution_clock::now();
   float min_distance, t_distance;
   int min_index = 0;
   for(int i = 0; i < queries.size(); i++)
@@ -40,8 +44,10 @@ void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<Po
         min_distance = t_distance;
       }
     }
-    result.push_back(data[min_index]);
+    result[i] = min_index;
   }
+  chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
+  NearestNeighbor<T>::search_time = chrono::duration_cast<chrono::milliseconds>( end - begin );
 }
 
 #ifdef DEBUG
@@ -81,17 +87,25 @@ void test_nns_1()
   Point<int> q3(w3);
   Point<int> q4(w4);
   vector<Point<int>> queries {q1, q2, q3, q4};
-  vector<Point<int>> result;
+  vector<int> result(queries.size());
+  vector<Point<int>> final_res(queries.size());
 
   NearestNeighbor<int> *b = new Brute<int>();
   b->nns(data, queries, result);
+
+  for(int i = 0; i < result.size(); i++)
+  {
+    final_res[i] = data[result[i]];
+  }
 
   cout << "data: ";
   print_vector(data);
   cout << "queries: ";
   print_vector(queries);
   cout << "result: ";
-  print_vector(result);
+  print_vector(final_res);
+  cout << "search time = " << (b->get_search_time()).count() << " milliseconds" << endl;
+  cout << "create time = " << (b->get_create_time()).count() << " milliseconds" << endl;
   cout << endl;
 }
 
@@ -102,7 +116,6 @@ void test_nns_random()
   int N = 4;
   vector<Point<float>> data;
   vector<Point<float>> queries;
-  vector<Point<float>> result;
 
   for(unsigned int i=0; i < N; i++) {
       vector<float> coords;
@@ -117,21 +130,36 @@ void test_nns_random()
       coords.push_back(0 + 100.0*(rand() / (1.0 + RAND_MAX)));
       queries.push_back(Point<float>(coords));
   }
+  vector<int> result (queries.size());
+  vector<Point<float>> final_res(queries.size());
+  //cout << "starting nns" << endl;
+  NearestNeighbor<float> *b = new Brute<float>();
+  b->nns(data, queries, result);
+  //cout << "ending nns" << endl;
 
-  Brute<float> b;
-  b.nns(data, queries, result);
+
+  for(int i = 0; i < result.size(); i++)
+  {
+    final_res[i] = data[result[i]];
+  }
+
+  
   cout << "data: ";
   print_vector(data);
   cout << "queries: ";
   print_vector(queries);
   cout << "result: ";
-  print_vector(result);
+  print_vector(final_res);
+  
+  cout << "search time = " << (b->get_search_time()).count() << " milliseconds" << endl;
+  cout << "create time = " << (b->get_create_time()).count() << " milliseconds" << endl;
   cout << endl;
 }
 
 int main()
 {
-  test_nns_1();
+  //test_nns_1();
+  test_nns_random();
   return 0;
 }
 

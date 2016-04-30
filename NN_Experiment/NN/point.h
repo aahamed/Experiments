@@ -17,7 +17,7 @@ template <typename T>
 class Point
 {
   public:
-    Point(vector<T> &in)
+    Point(vector<T> in = vector<T>())
     : coords(in)
     {}
 

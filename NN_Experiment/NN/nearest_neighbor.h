@@ -8,12 +8,37 @@
 #define NEAREST_NEIGHBOR_H_
 
 #include "point.h"
+#include <chrono>
 
 template <typename T>
 class NearestNeighbor
 {
   public:
-    virtual void nns(vector<Point<T>> &data, vector<Point<T>> &queries, vector<Point<T>> &result) = 0;
+
+
+
+    /*
+     * nns: nearest neighbor search
+     * @param data reference data set
+     * @param queries query set
+     * @param result result[i] contains the index of the nearest neighbor of queries[i]
+     *               Therefore nearest neighbor of query[i] is data[result[i]]
+     */
+    virtual void nns(vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result) = 0;
+    
+    chrono::milliseconds get_search_time()
+    {
+      return search_time;
+    }
+
+    chrono::milliseconds get_create_time()
+    {
+      return create_time;
+    }
+
+  protected:
+    chrono::milliseconds search_time;
+    chrono::milliseconds create_time;
 };
 
 #endif // NEAREST_NEIGHBOR_H_
