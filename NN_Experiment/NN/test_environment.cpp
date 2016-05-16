@@ -5,12 +5,59 @@
  */
 
 
+#include "brute.h"
+#include "ann_imp.h"
 #include "test_environment.h"
 #include <assert.h>
 #include <ctime>
+#include <cmath>
+
 
 // Public Methods
 
+ /*
+  * compare: Compare running time of 2 implementations of Nearest Neighbor Search by performing N queries
+  *          on N reference points where each point has dimension k
+  */
+void TestEnvironment::compare(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2, int N, int k)
+{
+  cout << "N = " << N << endl;
+  vector<Point<float>> data (N);
+  vector<Point<float>> queries (N);
+  vector<int> res1 (N);
+  vector<int> res2 (N);
+  TestEnvironment::gen_data(data, k);
+  TestEnvironment::gen_data(queries, k);
+  impl1->nns(data, queries, res1);
+  impl2->nns(data, queries, res2);
+  if(!verify(res1, res2))
+  {
+    cout << "Results don't match !!!" << endl;
+    exit(-1);
+  }
+  cout << "Impl 1 - " << impl1->get_name() << endl;
+  cout <<  "create time: " << (impl1->get_create_time()).count() 
+                        << " search time: " << (impl1->get_search_time()).count() << endl;
+
+  cout << "Impl 2 - " << impl2->get_name() << endl; 
+  cout << "create time: " << (impl2->get_create_time()).count()
+              << " search time: " << (impl2->get_search_time()).count() << endl;
+
+}
+
+ /*
+  * compare_growth: Compare running time of 2 implementations of Nearest Neighbor Search on input growing from 2^start till 2^end
+  */
+void TestEnvironment::compare_growth(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2, int start, int end)
+{
+  int base = 2;
+  int k = 2;
+
+  for(int i = start; i < end; i++)
+  {
+    TestEnvironment::compare(impl1, impl2, pow(base, i), k);    
+  }
+}
 
 
 // Private Methods
@@ -28,6 +75,10 @@ bool TestEnvironment::verify(const vector<int> &res1, const vector<int> &res2)
   {
     if(res1[i] != res2[i])
     {
+#ifdef DEBUG
+      cout << "i = " << i << "res1 = " << res1[i] << "res2 = " << res2[i] << endl;
+      cout << "i-1 = " << i-1 << "res1 = " << res1[i-1] << "res2 = " << res2[i-1] << endl;
+#endif
       return false;
     }
   }
@@ -47,7 +98,7 @@ void TestEnvironment::gen_data(vector<Point<float>> &v, int k)
       vector<float> coords;
       for(int j = 0; j < k; j++)
       {
-        coords.push_back(0 + 100.0*(rand() / (1.0 + RAND_MAX)));
+        coords.push_back(0 + 200.0*(rand() / (1.0 + RAND_MAX)));
       }
       v[i] = Point<float>(coords); 
   }
@@ -89,11 +140,31 @@ void test_gen_data_1()
   cout << endl;
 }
 
+void test_compare_1()
+{
+  int N = 10000, k = 2;
+  NearestNeighbor<float> *brute = new Brute<float>();
+  NearestNeighbor<float> *ann = new AnnImp<float>();
+  TestEnvironment::compare(brute, ann, N, k);
+}
+
+void test_compare_growth_1()
+{
+  int k = 2, start = 1, end = 25;
+  NearestNeighbor<float> *brute = new Brute<float>();
+  NearestNeighbor<float> *ann = new AnnImp<float>();
+  TestEnvironment::compare_growth(brute, ann, start, end);
+}
+
 
 int main()
 {
+  /* initialize random seed: */
+  srand (time(NULL));
   test_gen_data_1();
   test_verify_1();
+  //test_compare_1();
+  test_compare_growth_1();
   return 0;
 }
 

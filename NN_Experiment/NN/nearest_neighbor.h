@@ -9,13 +9,16 @@
 
 #include "point.h"
 #include <chrono>
+#include <string>
 
 template <typename T>
 class NearestNeighbor
 {
   public:
 
-
+    //NearestNeighbor(){}
+    NearestNeighbor(string name) : name(name) {}
+    ~NearestNeighbor(){}
 
     /*
      * nns: nearest neighbor search
@@ -36,7 +39,13 @@ class NearestNeighbor
       return create_time;
     }
 
+    string get_name()
+    {
+      return name;
+    }
+
   protected:
+    string name;
     chrono::milliseconds search_time;
     chrono::milliseconds create_time;
 };

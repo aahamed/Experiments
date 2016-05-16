@@ -9,11 +9,15 @@
 
 #include "nearest_neighbor.h"
 #include <ANN/ANN.h>
+#include <assert.h>
 
 template <typename T>
 class AnnImp: public NearestNeighbor<T> 
 {
   public:
+    AnnImp(string name = "ANN" ) : NearestNeighbor<T>(name) {}
+    ~AnnImp(){}
+
     /*
      * nns: nearest neighbor search
      * @param data reference data set

@@ -5,7 +5,6 @@
  */
 
 #include "ann_imp.h"
-#include <assert.h>
 
 
 template <typename T>
@@ -34,7 +33,7 @@ void AnnImp<T>::ann_search( vector<Point<T>> &data, vector<Point<T>> &queries, v
     NearestNeighbor<T>::search_time = chrono::duration_cast<chrono::milliseconds>( end - begin );
     annDeallocPt(queryPt);
     delete [] nnIdx;
-    delete [] dists;
+    delete [] dists; 
 }
 
 template <typename T>
@@ -65,7 +64,9 @@ void AnnImp<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<i
     annClose();
 }
 
-#ifdef DEBUG
+template class AnnImp<float>;
+
+#ifdef DEBUG_ANN
 
 template <typename T>
 void print_vector(vector<T> &v)

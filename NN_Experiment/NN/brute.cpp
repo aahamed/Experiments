@@ -9,9 +9,9 @@
 #include "brute.h"
 #include <cstdlib>
 #include <ctime>
-#include <assert.h>
 
 // Distance Calculation (squared)
+
 template <typename T>
 float Brute<T>::serial_distance(Point<T> &p, Point<T> &q)
 {
@@ -22,6 +22,8 @@ float Brute<T>::serial_distance(Point<T> &p, Point<T> &q)
   }
   return sdistance;
 }
+
+
 
 template <typename T>
 void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result )
@@ -50,7 +52,12 @@ void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<in
   NearestNeighbor<T>::search_time = chrono::duration_cast<chrono::milliseconds>( end - begin );
 }
 
-#ifdef DEBUG
+template class Brute<float>;
+
+
+
+
+#ifdef DEBUG_BRUTE
 
 template <typename T>
 void print_vector(vector<T> &v)

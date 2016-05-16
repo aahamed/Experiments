@@ -17,12 +17,12 @@ class TestEnvironment
     * compare: Compare 2 implementations of Nearest Neighbor Search by performing N queries
     *          on N reference points where each point has dimension k
     */
-   static void compare(NearestNeighbor<float> *impl1, NearestNeighbor<float> impl2, int N, int k);
+   static void compare(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2, int N, int k);
 
    /*
     * compare_growth: Compare 2 implementations of Nearest Neighbor Search on input growing from 2^start till 2^end
     */
-   static void compare_growth(NearestNeighbor<float> *impl1, NearestNeighbor<float> impl2, int start, int end);
+   static void compare_growth(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2, int start, int end);
 
     /*friends*/
     friend void test_verify_1();
