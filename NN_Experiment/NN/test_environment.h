@@ -41,5 +41,7 @@ class TestEnvironment
     static void gen_data(vector<Point<float>> &v, int k);
 };
 
+void print_result(int N, int time);
+void print_result_v(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2);
 
 #endif // TEST_ENVIRONMENT 

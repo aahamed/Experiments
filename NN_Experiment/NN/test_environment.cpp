@@ -6,12 +6,28 @@
 
 
 #include "brute.h"
+#include "brute_gpu.h"
 #include "ann_imp.h"
 #include "test_environment.h"
 #include <assert.h>
 #include <ctime>
 #include <cmath>
 
+void print_result(int N, int time1, int time2)
+{
+  cout << N << " " << time1 << " " << time2 << endl;
+}
+
+void print_result_v(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2)
+{
+  cout << "Impl 1 - " << impl1->get_name() << endl;
+  cout <<  "create time: " << (impl1->get_create_time()).count() << " ms " 
+                        << " search time: " << (impl1->get_search_time()).count() << " ms " << endl;
+
+  cout << "Impl 2 - " << impl2->get_name() << endl; 
+  cout << "create time: " << (impl2->get_create_time()).count() << " ms " 
+              << " search time: " << (impl2->get_search_time()).count() << " ms " << endl;
+}
 
 // Public Methods
 
@@ -21,7 +37,7 @@
   */
 void TestEnvironment::compare(NearestNeighbor<float> *impl1, NearestNeighbor<float> *impl2, int N, int k)
 {
-  cout << "N = " << N << endl;
+  //cout << "N = " << N << endl;
   vector<Point<float>> data (N);
   vector<Point<float>> queries (N);
   vector<int> res1 (N);
@@ -35,13 +51,8 @@ void TestEnvironment::compare(NearestNeighbor<float> *impl1, NearestNeighbor<flo
     cout << "Results don't match !!!" << endl;
     exit(-1);
   }
-  cout << "Impl 1 - " << impl1->get_name() << endl;
-  cout <<  "create time: " << (impl1->get_create_time()).count() 
-                        << " search time: " << (impl1->get_search_time()).count() << endl;
 
-  cout << "Impl 2 - " << impl2->get_name() << endl; 
-  cout << "create time: " << (impl2->get_create_time()).count()
-              << " search time: " << (impl2->get_search_time()).count() << endl;
+  print_result(N, impl1->get_search_time().count(), impl2->get_search_time().count());
 
 }
 
@@ -52,7 +63,7 @@ void TestEnvironment::compare_growth(NearestNeighbor<float> *impl1, NearestNeigh
 {
   int base = 2;
   int k = 2;
-
+  cout << "#N impl1 impl2" << endl;
   for(int i = start; i < end; i++)
   {
     TestEnvironment::compare(impl1, impl2, pow(base, i), k);    
@@ -148,10 +159,26 @@ void test_compare_1()
   TestEnvironment::compare(brute, ann, N, k);
 }
 
+void test_compare_2()
+{
+  int N = 10000, k = 2;
+  NearestNeighbor<float> *brute = new BruteGPU<float>();
+  NearestNeighbor<float> *ann = new AnnImp<float>();
+  TestEnvironment::compare(brute, ann, N, k);
+}
+
 void test_compare_growth_1()
 {
-  int k = 2, start = 1, end = 25;
+  int k = 2, start = 1, end = 15;
   NearestNeighbor<float> *brute = new Brute<float>();
+  NearestNeighbor<float> *ann = new AnnImp<float>();
+  TestEnvironment::compare_growth(brute, ann, start, end);
+}
+
+void test_compare_growth_2()
+{
+  int k = 2, start = 1, end = 20;
+  NearestNeighbor<float> *brute = new BruteGPU<float>();
   NearestNeighbor<float> *ann = new AnnImp<float>();
   TestEnvironment::compare_growth(brute, ann, start, end);
 }
@@ -161,10 +188,12 @@ int main()
 {
   /* initialize random seed: */
   srand (time(NULL));
-  test_gen_data_1();
-  test_verify_1();
+  //test_gen_data_1();
+  //test_verify_1();
   //test_compare_1();
-  test_compare_growth_1();
+  //test_compare_2();
+  //test_compare_growth_1();
+  test_compare_growth_2();
   return 0;
 }
 

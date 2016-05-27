@@ -1,23 +1,24 @@
 /*
  * Author: Aadil Ahamed
- * Created: 4/25/16
- * brute.h: Header file for brute force implementation of Nearest Neighbor.
+ * Created: 5/16/16
+ * brute.h: Header file for brute force implementation on GPU of Nearest Neighbor.
  */
 
-#ifndef BRUTE_H 
-#define BRUTE_H
+#ifndef BRUTE_GPU_H 
+#define BRUTE_GPU_H
 
-#include "nearest_neighbor.h"
+#include "brute.h"
+#include "cuda.h"
 #include <assert.h>
 
 #define square(x) ((x)*(x))
 
 template <typename T>
-class Brute: public NearestNeighbor<T>
+class BruteGPU: public Brute<T>
 {
   public:
-    Brute(string name = "Brute" ) : NearestNeighbor<T>(name){}
-    ~Brute(){}
+    BruteGPU(string name = "BruteGPU" ) : Brute<T>(name){}
+    ~BruteGPU(){}
     /*
      * nns: nearest neighbor search
      * @param data reference data set
@@ -26,10 +27,15 @@ class Brute: public NearestNeighbor<T>
      *               Therefore nearest neighbor of query[i] is data[result[i]]
      */
     virtual void nns(vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result);
-
-  protected:
-    //float serial_distance(Point<T> &p, Point<T> &q);
 };
+
+/*
+template <typename T>
+__global__ void nn(vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result);
+
+template <typename T>
+__device__ float serial_distance(Point<T> &p, Point<T> &q);
+*/
 
 
 #endif

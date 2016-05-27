@@ -1,20 +1,14 @@
 /*
  * Author: Aadil Ahamed
- * Created: 4/25/16
- * brute.cpp: Implementation of Brute class
+ * Created: 5/16/16
+ * brute_gpu.cpp: Implementation of brute force nn on gpu
  */
 
-#define square(x) ((x)*(x))
-
-#include "brute.h"
-#include <cstdlib>
-#include <ctime>
-
-// Distance Calculation (squared)
+#include "brute_gpu.h"
 
 /*
 template <typename T>
-float Brute<T>::serial_distance(Point<T> &p, Point<T> &q)
+__device__ float serial_distance(Point<T> &p, Point<T> &q)
 {
   float sdistance = 0;
   for(int i = 0; i < p.dim(); i++)
@@ -25,38 +19,92 @@ float Brute<T>::serial_distance(Point<T> &p, Point<T> &q)
 }
 */
 
+/**
+* Kernel
+* Executed on GPU
+* Perform nearest neighbor search against data using queries
+*/
 
 template <typename T>
-void Brute<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result )
+__global__ void nn(Point<T> *data, Point<T> *queries, int *result, int N)
 {
-  assert (queries.size() == result.size());
-  NearestNeighbor<T>::create_time = chrono::milliseconds(0);
-  chrono::high_resolution_clock::time_point begin = chrono::high_resolution_clock::now();
-  float min_distance, t_distance;
-  int min_index = 0;
-  for(int i = 0; i < queries.size(); i++)
+  int global_id = blockDim.x * (gridDim.x * blockIdx.y + blockIdx.x) + threadIdx.x;
+  if (global_id < N)
   {
-    min_index = 0;
-    min_distance = Point<T>::distance(queries[i], data[0]);
-    for(int j = 0; j < data.size(); j++)
+    Point<T> &qpoint = queries[global_id];
+    int min_i = 0;
+    float min_distance = Point<T>::distance(qpoint, data[0]);
+    float t_distance = 0;
+    for(int i = 1; i < N; i++)
     {
-      t_distance = Point<T>::distance(queries[i], data[j]); 
+      t_distance = Point<T>::distance(qpoint, data[i]);
       if(t_distance < min_distance)
       {
-        min_index = j;
         min_distance = t_distance;
+        min_i = i;
       }
     }
-    result[i] = min_index;
+    result[global_id] = min_i;
   }
-  chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
-  NearestNeighbor<T>::search_time = chrono::duration_cast<chrono::milliseconds>( end - begin );
 }
 
-template class Brute<float>;
-template class Brute<int>;
+
+template <typename T>
+void BruteGPU<T>::nns( vector<Point<T>> &data, vector<Point<T>> &queries, vector<int> &result )
+{
+  int THREADS_PER_BLOCK = 512;
+  int N = data.size();
+  int size_pts = N * sizeof(Point<T>);
+  int size_res = N * sizeof(int);
+  int blocks = N/THREADS_PER_BLOCK + ((N % THREADS_PER_BLOCK) ? 1 : 0);
+  Point<T> *d_data, *d_queries;
+  int *d_results, *results;
+ 
+  //Allocate space for result
+  results = new int[N];
+
+  // Allocate space for device copies of data and queries
+  cudaMalloc((void **)&d_data, size_pts);
+  cudaMalloc((void **)&d_queries, size_pts);
+  cudaMalloc((void **)&d_results, size_res);
+
+  cudaMemcpy(d_data, &data[0], size_pts, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_queries, &queries[0], size_pts, cudaMemcpyHostToDevice);
+  
+  chrono::high_resolution_clock::time_point begin = chrono::high_resolution_clock::now();
+  nn<<<blocks, THREADS_PER_BLOCK>>>(d_data, d_queries, d_results, N);
+  chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
+  NearestNeighbor<T>::search_time = chrono::duration_cast<chrono::milliseconds>( end - begin );
+
+  if(cudaGetLastError() != cudaSuccess)
+  {
+    printf("%s\n", cudaGetErrorString((cudaGetLastError())));
+  }
+  
+  // Copy result back to host
+  cudaMemcpy(results, d_results, size_res, cudaMemcpyDeviceToHost);
+
+  cudaFree(d_data);
+  cudaFree(d_queries);
+  cudaFree(d_results);
+  //cout << "Results: " << endl;
+  for(int i = 0; i < N; i++)
+  {
+    //cout << results[i] << " ";
+    result[i] = results[i];
+  }
+  cout << endl;
+  delete results;
+}
 
 
+template class BruteGPU<float>;
+template class BruteGPU<int>;
+
+//template __device__ float serial_distance(Point<float> &p, Point<float> &q);
+//template __device__ float serial_distance(Point<int> &p, Point<int> &q);
+template __global__ void nn(Point<float> *data, Point<float> *queries, int *result, int N);
+template __global__ void nn(Point<int> *data, Point<int> *queries, int *result, int N);
 
 
 #ifdef DEBUG
@@ -74,7 +122,7 @@ void print_vector(vector<T> &v)
 
 void test_nns_1()
 {
-  int N = 4;
+  //int N = 4;
   vector<int> v1 {0, 0};
   vector<int> v2 {0, 1};
   vector<int> v3 {0, 2};
@@ -99,7 +147,7 @@ void test_nns_1()
   vector<int> result(queries.size());
   vector<Point<int>> final_res(queries.size());
 
-  NearestNeighbor<int> *b = new Brute<int>();
+  NearestNeighbor<int> *b = new BruteGPU<int>();
   b->nns(data, queries, result);
 
   for(int i = 0; i < result.size(); i++)
@@ -116,6 +164,7 @@ void test_nns_1()
   cout << "search time = " << (b->get_search_time()).count() << " milliseconds" << endl;
   cout << "create time = " << (b->get_create_time()).count() << " milliseconds" << endl;
   cout << endl;
+  
 }
 
 
@@ -142,7 +191,7 @@ void test_nns_random()
   vector<int> result (queries.size());
   vector<Point<float>> final_res(queries.size());
   //cout << "starting nns" << endl;
-  NearestNeighbor<float> *b = new Brute<float>();
+  NearestNeighbor<float> *b = new BruteGPU<float>();
   b->nns(data, queries, result);
   //cout << "ending nns" << endl;
 
@@ -172,4 +221,4 @@ int main()
   return 0;
 }
 
-#endif //DEBUG
+#endif
